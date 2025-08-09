@@ -1,5 +1,6 @@
 from django.db import models
 from accounts.models import User
+from django.core.validators import MinLengthValidator
 
 class Job(models.Model):
     STATUS_CHOICES = (
@@ -7,9 +8,9 @@ class Job(models.Model):
         ('open', 'Open'),
         ('closed', 'Closed'),
     )
-    title = models.CharField(max_length=200)
-    description = models.TextField()
-    location = models.CharField(max_length=200)
+    title = models.CharField(max_length=100)
+    description = models.CharField(max_length=2000, validators=[MinLengthValidator(50)]  )
+    location = models.CharField(max_length=200, null=True, blank=True)
     status = models.CharField(choices=STATUS_CHOICES, max_length=10, default='draft')
     created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='jobs')
     created_at = models.DateTimeField(auto_now_add=True) 
@@ -34,5 +35,3 @@ class Application(models.Model):
     status = models.CharField(choices=STATUS_CHOICES, max_length=10, default='applied')
     applied_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"Application of {self.applicant.email} for {self.job.title} - {self.status}"
