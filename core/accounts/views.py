@@ -1,8 +1,10 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import UserRegistrationSerializer
+from .serializers import UserRegistrationSerializer, UserLoginSerializer
 from .tasks.email import send_verification_email, verify_verification_token
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
 from accounts.models import User
 from django.http import HttpResponse
 
@@ -68,3 +70,41 @@ def verify_email_view(request):
             status=404
         )
 
+
+@api_view(['POST'])
+def user_login_view(request):
+    serializer = UserLoginSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(
+            base_response(False, "Invalid input", errors=serializer.errors),
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    email = serializer.validated_data['email']
+    password = serializer.validated_data['password']
+
+    user = authenticate(request, email=email, password=password)
+    if user is None:
+        return Response(
+            base_response(False, "Invalid email or password"),
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    if not user.is_active:
+        return Response(
+            base_response(False, "User account is not active. Please verify your email."),
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    refresh = RefreshToken.for_user(user)
+    access_token = str(refresh.access_token)
+
+    return Response(
+        base_response(True, "Login successful", {
+            "access": access_token,
+            "refresh": str(refresh),
+            "user_id": user.id,
+            "role": user.role,
+        }),
+        status=status.HTTP_200_OK
+    )
